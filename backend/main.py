@@ -1,11 +1,34 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from uuid import uuid4
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Mapped, declarative_base, mapped_column, sessionmaker
 
-app = FastAPI()
 
-app.add_middleware(
+DATABASE_URL = "postgresql+postgres:postgres:admin@localhost:5432/postgres"
+engine = create_engine(DATABASE_URL)
+Sessionlocal = sessionmaker(bind=engine)
+
+class Base(declarative_base):
+    id: Mapped[int] = mapped_column(primary_key=True, index=True, default=lambda: str(uuid4()))
+
+class TaskORM(Base):
+    __tablename__ = "tasks"
+    title: Mapped[str] = mapped_column(nullable=False)
+    completed: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+    Base.metadata.drop_all(bind=engine)
+
+app = FastAPI(lifespan=lifespan)
+
+@app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
