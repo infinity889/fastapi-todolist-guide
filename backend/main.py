@@ -91,6 +91,3 @@ def delete_task(task_id: str, db=Depends(get_db)):
     return {"error": "Task not found"}
 
 
-def select(model):
-
-    feff
