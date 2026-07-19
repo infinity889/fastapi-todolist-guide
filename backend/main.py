@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+
 from pydantic import BaseModel
 from uuid import uuid4
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Mapped, declarative_base, mapped_column, sessionmaker
 
@@ -13,7 +15,7 @@ engine = create_engine(DATABASE_URL)
 Sessionlocal = sessionmaker(bind=engine)
 
 class Base(declarative_base):
-    id: Mapped[int] = mapped_column(primary_key=True, index=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(primary_key=True, index=True, default=lambda: str(uuid4()))
 
 class TaskORM(Base):
     __tablename__ = "tasks"
@@ -48,19 +50,28 @@ class TAskUpdateSchema(BaseModel):
 
 tasks: list[TaskSchema] = []
 
+def get_db():
+    db = Sessionlocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 @app.get("/tasks")
-def get_tasks():
+def get_tasks(db=Depends(get_db)):
+    db.scalars(select(TaskORM)).all()
     return tasks
 
 @app.post("/tasks", response_model=TaskSchema)
-def create_task(payload: TAskCreateSchema):
+def create_task(payload: TAskCreateSchema, db=Depends(get_db)):
     new_task = TaskSchema(id=str(uuid4()), title=payload.title, completed=False)
     tasks.append(new_task)
     return new_task
 
 
 @app.patch("/tasks/{task_id}", response_model=TaskSchema)
-def update_task(payload: TAskUpdateSchema, task_id: str):
+def update_task(payload: TAskUpdateSchema, task_id: str, db=Depends(get_db)):
     for task in tasks:
         if task.id == task_id:
             if payload.title is not None:
@@ -72,7 +83,7 @@ def update_task(payload: TAskUpdateSchema, task_id: str):
 
 
 @app.delete("/tasks/{task_id}", response_model=dict)
-def delete_task(task_id: str):
+def delete_task(task_id: str, db=Depends(get_db)):
     for task in tasks:
         if task.id == task_id:
             tasks.remove(task)
@@ -80,3 +91,6 @@ def delete_task(task_id: str):
     return {"error": "Task not found"}
 
 
+def select(model):
+
+    feff
