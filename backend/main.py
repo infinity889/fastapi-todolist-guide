@@ -89,25 +89,25 @@ def create_task(payload: TAskCreateSchema, db=Depends(get_db)):
 
 @app.patch("/tasks/{task_id}", response_model=TaskSchema)
 def update_task(payload: TAskUpdateSchema, task_id: str, db=Depends(get_db)):
-    for task in db.scalars(select(TaskORM)).all():
-        if task.id == task_id:
-            if payload.title is not None:
-                task.title = payload.title
-            if payload.completed is not None:
-                task.completed = payload.completed
-            db.commit()
-            db.refresh(task)
-            return task_orm_to_model(task)
+    task_for_update = db.get(TaskORM, task_id)
+    if task_for_update:
+        if payload.title is not None:
+            task_for_update.title = payload.title
+        if payload.completed is not None:
+            task_for_update.completed = payload.completed
+        db.commit()
+        db.refresh(task_for_update)
+        return task_orm_to_model(task_for_update)
     return {"error": "Task not found"}
 
 
 @app.delete("/tasks/{task_id}", response_model=dict)
 def delete_task(task_id: str, db=Depends(get_db)):
-    for task in db.scalars(select(TaskORM)).all():
-        if task.id == task_id:
-            db.delete(task)
-            db.commit()
-            return {"message": "Task deleted"}
+    task_to_delete = db.get(TaskORM, task_id)
+    if task_to_delete:
+        db.delete(task_to_delete)
+        db.commit()
+        return {"message": "Task deleted"}
     return {"error": "Task not found"}
 
 
@@ -126,20 +126,20 @@ def create_category(payload: CategoryCreateSchema, db=Depends(get_db)):
 
 @app.patch("/categories/{category_id}")
 def update_category(payload: CategoryUpdateSchema, category_id: str, db=Depends(get_db)):
-    for category in db.scalars(select(CategoryORM)).all():
-        if category.id == category_id:
-            if payload.name is not None:
-                category.name = payload.name
-            db.commit()
-            db.refresh(category)
-            return CategorySchema(id=category.id, name=category.name)
+    category_for_update = db.get(CategoryORM, category_id)
+    if category_for_update:
+        if payload.name is not None:
+            category_for_update.name = payload.name
+        db.commit()
+        db.refresh(category_for_update)
+        return CategorySchema(id=category_for_update.id, name=category_for_update.name)
     return {"error": "Category not found"}
 
 @app.delete("/categories/{category_id}")
 def delete_category(category_id: str, db=Depends(get_db)):
-    for category in db.scalars(select(CategoryORM)).all():
-        if category.id == category_id:
-            db.delete(category)
-            db.commit()
-            return {"message": "Category deleted"}
+    category_to_delete = db.get(CategoryORM, category_id)
+    if category_to_delete:
+        db.delete(category_to_delete)
+        db.commit()
+        return {"message": "Category deleted"}
     return {"error": "Category not found"}
