@@ -22,6 +22,10 @@ class TaskORM(Base):
     title: Mapped[str] = mapped_column(nullable=False)
     completed: Mapped[bool] = mapped_column(default=False, nullable=False)
 
+class CategoryORM(Base):
+    __tablename__ = "categories"
+    name: Mapped[str] = mapped_column(nullable=False)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
@@ -48,6 +52,15 @@ class TAskUpdateSchema(BaseModel):
     title: str | None = None
     completed: bool | None = None
 
+class CategorySchema(BaseModel):
+    id: str
+    name: str
+
+class CategoryCreateSchema(BaseModel):
+    name: str
+
+class CategoryUpdateSchema(BaseModel):
+    name: str | None = None
 
 def get_db():
     db = Sessionlocal()
@@ -98,3 +111,35 @@ def delete_task(task_id: str, db=Depends(get_db)):
     return {"error": "Task not found"}
 
 
+@app.get("/categories")
+def get_categories(db=Depends(get_db)):
+    db_categories = db.scalars(select(CategoryORM)).all()
+    return [CategorySchema(id=category.id, name=category.name) for category in db_categories]
+
+@app.post("/categories")
+def create_category(payload: CategoryCreateSchema, db=Depends(get_db)):
+    new_category = CategoryORM(name=payload.name)
+    db.add(new_category)
+    db.commit()
+    db.refresh(new_category)
+    return CategorySchema(id=new_category.id, name=new_category.name)
+
+@app.patch("/categories/{category_id}")
+def update_category(payload: CategoryUpdateSchema, category_id: str, db=Depends(get_db)):
+    for category in db.scalars(select(CategoryORM)).all():
+        if category.id == category_id:
+            if payload.name is not None:
+                category.name = payload.name
+            db.commit()
+            db.refresh(category)
+            return CategorySchema(id=category.id, name=category.name)
+    return {"error": "Category not found"}
+
+@app.delete("/categories/{category_id}")
+def delete_category(category_id: str, db=Depends(get_db)):
+    for category in db.scalars(select(CategoryORM)).all():
+        if category.id == category_id:
+            db.delete(category)
+            db.commit()
+            return {"message": "Category deleted"}
+    return {"error": "Category not found"}
