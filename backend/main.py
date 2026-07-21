@@ -2,29 +2,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
-
 from pydantic import BaseModel
-from uuid import uuid4
+from sqlalchemy import select
 
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Mapped, DeclarativeBase, mapped_column, sessionmaker
+from app.db.session import engine, get_db
+from app.models.base import Base
+from app.models.task import TaskORM, CategoryORM
 
-
-DATABASE_URL = "postgresql+psycopg://postgres:postgres@127.0.0.1:15432/postgres"
-engine = create_engine(DATABASE_URL)
-Sessionlocal = sessionmaker(bind=engine)
-
-class Base(DeclarativeBase):
-    id: Mapped[str] = mapped_column(primary_key=True, index=True, default=lambda: str(uuid4()))
-
-class TaskORM(Base):
-    __tablename__ = "tasks"
-    title: Mapped[str] = mapped_column(nullable=False)
-    completed: Mapped[bool] = mapped_column(default=False, nullable=False)
-
-class CategoryORM(Base):
-    __tablename__ = "categories"
-    name: Mapped[str] = mapped_column(nullable=False)
+from app.schemas.schemas import *
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,35 +24,6 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
 )
-
-class TaskSchema(BaseModel):
-    id: str
-    title: str
-    completed: bool
-
-class TAskCreateSchema(BaseModel):
-    title: str
-
-class TAskUpdateSchema(BaseModel):
-    title: str | None = None
-    completed: bool | None = None
-
-class CategorySchema(BaseModel):
-    id: str
-    name: str
-
-class CategoryCreateSchema(BaseModel):
-    name: str
-
-class CategoryUpdateSchema(BaseModel):
-    name: str | None = None
-
-def get_db():
-    db = Sessionlocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def task_orm_to_model(task_orm: TaskORM) -> TaskSchema:
